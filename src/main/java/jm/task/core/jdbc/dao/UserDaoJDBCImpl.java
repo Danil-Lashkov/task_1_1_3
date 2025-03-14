@@ -1,6 +1,7 @@
 package jm.task.core.jdbc.dao;
 
 import jm.task.core.jdbc.model.User;
+import jm.task.core.jdbc.util.Util;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -13,8 +14,8 @@ import java.util.List;
 public class UserDaoJDBCImpl implements UserDao {
     private Connection connection;
 
-    public UserDaoJDBCImpl(Connection connection) {
-        this.connection = connection;
+    public UserDaoJDBCImpl() {
+        this.connection = Util.getConnection();
     }
 
     @Override
@@ -53,23 +54,29 @@ public class UserDaoJDBCImpl implements UserDao {
     public void saveUser(String name, String lastName, byte age) {
         String query = "INSERT INTO users (name, last_name, age) VALUES (?, ?, ?)";
 
-        try {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             connection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-                preparedStatement.setString(1, name);
-                preparedStatement.setString(2, lastName);
-                preparedStatement.setByte(3, age);
-                preparedStatement.executeUpdate();
-                connection.commit();
-                System.out.println("Пользователь " + name + " добавлен в таблицу users");
-            } catch (SQLException e) {
+
+            preparedStatement.setString(1, name);
+            preparedStatement.setString(2, lastName);
+            preparedStatement.setByte(3, age);
+            preparedStatement.executeUpdate();
+
+            connection.commit();
+            System.out.println("Пользователь " + name + " добавлен в таблицу users");
+        } catch (SQLException e) {
+            try {
                 connection.rollback();
                 System.err.println("Ошибка при добавлении пользователя: " + e.getMessage());
-            } finally {
-                connection.setAutoCommit(true);
+            } catch (SQLException ex) {
+                System.err.println("Ошибка при откате транзакции: " + ex.getMessage());
             }
-        } catch (SQLException e) {
-            System.err.println("Ошибка управления транзакцией: " + e.getMessage());
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException e) {
+                System.err.println("Ошибка при возврате autoCommit: " + e.getMessage());
+            }
         }
     }
 
@@ -77,21 +84,27 @@ public class UserDaoJDBCImpl implements UserDao {
     public void removeUserById(long id) {
         String query = "DELETE FROM users WHERE id = ?";
 
-        try {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             connection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-                preparedStatement.setLong(1, id);
-                preparedStatement.executeUpdate();
-                connection.commit();
-                System.out.println("Пользователь с id = " + id + " удален");
-            } catch (SQLException e) {
+
+            preparedStatement.setLong(1, id);
+            preparedStatement.executeUpdate();
+
+            connection.commit();
+            System.out.println("Пользователь с id = " + id + " удален");
+        } catch (SQLException e) {
+            try {
                 connection.rollback();
                 System.err.println("Ошибка при удалении пользователя: " + e.getMessage());
-            } finally {
-                connection.setAutoCommit(true);
+            } catch (SQLException ex) {
+                System.err.println("Ошибка при откате транзакции: " + ex.getMessage());
             }
-        } catch (SQLException e) {
-            System.err.println("Ошибка управления транзакцией: " + e.getMessage());
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException e) {
+                System.err.println("Ошибка при возврате autoCommit: " + e.getMessage());
+            }
         }
     }
 
